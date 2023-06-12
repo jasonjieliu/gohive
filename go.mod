@@ -1,4 +1,4 @@
-module github.com/beltran/gohive
+module github.com/jasonjieliu/gohive
 
 go 1.19
 
