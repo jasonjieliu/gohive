@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math/rand"
@@ -684,7 +685,7 @@ func (c *Cursor) fetchIfEmpty(ctx context.Context) {
 	}
 }
 
-//RowMap returns one row as a map. Advances the cursor one
+// RowMap returns one row as a map. Advances the cursor one
 func (c *Cursor) RowMap(ctx context.Context) map[string]interface{} {
 	c.Err = nil
 	c.fetchIfEmpty(ctx)
@@ -1197,6 +1198,37 @@ func (c *Cursor) parseResults(response *hiveserver.TFetchResultsResp) (err error
 		c.state = _FINISHED
 	}
 	return
+}
+
+func (c *Cursor) GetJobID() string {
+	if c.operationHandle == nil || c.operationHandle.OperationId == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%s:%s",
+		hex.EncodeToString(c.operationHandle.OperationId.GetGUID()),
+		hex.EncodeToString(c.operationHandle.OperationId.GetSecret()))
+}
+
+func (c *Cursor) SetJobID(jobID string) error {
+	splitID := strings.Split(jobID, ":")
+	if len(splitID) != 2 {
+		return errors.Errorf("invalid jobID: %s", jobID)
+	}
+	uid, err := hex.DecodeString(splitID[0])
+	if err != nil {
+		return errors.Errorf("invalid uid: %s", err.Error())
+	}
+	secret, err := hex.DecodeString(splitID[1])
+	if err != nil {
+		return errors.Errorf("invalid secret: %s", err.Error())
+	}
+
+	c.operationHandle = &hiveserver.TOperationHandle{
+		OperationId: &hiveserver.THandleIdentifier{GUID: uid, Secret: secret},
+	}
+
+	return nil
 }
 
 func getTotalRows(columns []*hiveserver.TColumn) (int, error) {
